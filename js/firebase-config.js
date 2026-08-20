@@ -1,9 +1,8 @@
-export const firebase-Config = {
+export const firebaseConfig = {
   apiKey: "AIzaSyCcAcwCIP4nzzoeoOIF2mEjiHgLSCXD4l8",
   authDomain: "digital-binder-f9a09.firebaseapp.com",
   projectId: "digital-binder-f9a09",
   storageBucket: "digital-binder-f9a09.firebasestorage.app",
   messagingSenderId: "573558013749",
   appId: "1:573558013749:web:ecf41d994c6850d167167c",
-  measurementId: "G-Y0FHRXPCYC"
 };
