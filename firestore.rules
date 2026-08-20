@@ -1,0 +1,20 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /config/{docId} {
+      allow read: if true;             // public page needs this (password, nighttime content)
+      allow write: if request.auth != null;  // only signed-in admin can change it
+    }
+
+    match /sections/{sectionId} {
+      allow read: if true;             // public page needs this to display content
+      allow write: if request.auth != null;  // only signed-in admin can edit
+    }
+
+    match /responses/{dateId} {
+      allow read: if request.auth != null;   // only admin can review history
+      allow write: if true;                  // the public page records checklist/dropdown answers
+    }
+  }
+}

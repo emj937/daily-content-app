@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Daily</title>
+<link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+<div id="gate" class="gate">
+  <div class="gate-card">
+    <div class="gate-mark" aria-hidden="true"></div>
+    <h1>Enter password</h1>
+    <p class="hint">This page is private.</p>
+    <input id="password-input" type="password" placeholder="Password" autocomplete="current-password" />
+    <button type="button" class="enter" id="enter-btn">Enter</button>
+    <div class="error" id="gate-error"></div>
+  </div>
+</div>
+
+<div id="content-view" style="display:none;">
+  <div id="section-nav" class="section-nav"></div>
+  <div id="content" class="stack"></div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+import {
+  getFirestore, doc, getDoc, setDoc, collection, getDocs, query, orderBy,
+} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+import { firebaseConfig } from "./js/firebase-config.js";
+import { isNighttime, currentWeekdayKey, weekdayLabel, currentCycleIndex, dateKey } from "./js/schedule.js";
+import { weekdaySectionAccent, cycleAccent, staticAccent, NIGHTTIME_ACCENT, CONFETTI_DAY_COLORS, CONFETTI_NIGHT_COLORS } from "./js/colors.js";
+import { buildCard } from "./js/parts.js";
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+const SESSION_KEY = "daily_content_unlocked";
+
+const gateEl = document.getElementById("gate");
+const contentViewEl = document.getElementById("content-view");
+const sectionNavEl = document.getElementById("section-nav");
+const contentEl = document.getElementById("content");
+const pwInput = document.getElementById("password-input");
+const enterBtn = document.getElementById("enter-btn");
+const errorEl = document.getElementById("gate-error");
+
+async function checkPassword(entered) {
+  const cfgSnap = await getDoc(doc(db, "config", "app"));
+  if (!cfgSnap.exists()) return false;
+  return (cfgSnap.data().password || "") === entered;
+}
+
+// Tint the gate itself magenta if it's already nighttime when the page loads.
+if (isNighttime(new Date())) {
+  gateEl.classList.add("night");
+}
+
+async function tryUnlock() {
+  errorEl.textContent = "";
+  enterBtn.disabled = true;
+  enterBtn.textContent = "Checking…";
+  try {
+    const ok = await checkPassword(pwInput.value);
+    if (ok) {
+      sessionStorage.setItem(SESSION_KEY, "1");
+      showContent();
+    } else {
+      errorEl.textContent = "That's not right — try again.";
+    }
+  } catch (e) {
+    console.error(e);
+    errorEl.textContent = "Couldn't check the password. Check your connection.";
+  } finally {
+    enterBtn.disabled = false;
+    enterBtn.textContent = "Enter";
+  }
+}
+
+enterBtn.addEventListener("click", tryUnlock);
+pwInput.addEventListener("keydown", (e) => { if (e.key === "Enter") tryUnlock(); });
+
+async function showContent() {
+  gateEl.style.display = "none";
+  contentViewEl.style.display = "block";
+  await renderApp();
+}
+
+// ---- History: record checklist/dropdown interactions for later review ----
+function safeKey(str) {
+  return str.replace(/[\/.\[\]#$]/g, "_").slice(0, 120);
+}
+
+async function recordResponse({ sectionId, sectionName, type, item, checked, question, answer }) {
+  try {
+    const dateId = dateKey(new Date());
+    const updatedAt = new Date().toISOString();
+    let field;
+    if (type === "checklist") {
+      const key = safeKey(`${sectionId}::${item}`);
+      field = { checklist: { [key]: { sectionId, sectionName, item, checked, updatedAt } } };
+    } else {
+      const key = safeKey(`${sectionId}::${question}`);
+      field = { dropdown: { [key]: { sectionId, sectionName, question, answer, updatedAt } } };
+    }
+    await setDoc(doc(db, "responses", dateId), field, { merge: true });
+  } catch (e) {
+    console.error("Couldn't save response", e);
+  }
+}
+
+let activeSectionId = null;
+
+async function renderApp() {
+  const now = new Date();
+
+  if (isNighttime(now)) {
+    sectionNavEl.style.display = "none";
+    contentEl.innerHTML = "";
+    const nightSnap = await getDoc(doc(db, "config", "nighttime"));
+    const night = nightSnap.exists() ? nightSnap.data() : {};
+    const parts = [
+      { type: "checklist", items: (night.checklist && night.checklist.items) || [] },
+      { type: "dropdown", questions: (night.dropdown && night.dropdown.questions) || [] },
+    ];
+    contentEl.appendChild(buildCard("Nighttime", NIGHTTIME_ACCENT, parts, {
+      solo: true,
+      confettiColors: CONFETTI_NIGHT_COLORS,
+      onResponse: (r) => recordResponse({ sectionId: "nighttime", sectionName: "Nighttime", ...r }),
+    }));
+    return;
+  }
+
+  sectionNavEl.style.display = "flex";
+  const secSnap = await getDocs(query(collection(db, "sections"), orderBy("order", "asc")));
+  const sections = secSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+  if (!sections.length) {
+    sectionNavEl.innerHTML = "";
+    contentEl.innerHTML = `<div class="empty-note">No sections yet. Add one from the admin page.</div>`;
+    return;
+  }
+
+  if (!activeSectionId || !sections.some((s) => s.id === activeSectionId)) {
+    activeSectionId = sections[0].id;
+  }
+
+  function sectionAccent(section) {
+    if (section.type === "weekday") return weekdaySectionAccent(currentWeekdayKey(now), section.colorScheme);
+    if (section.type === "cycle") {
+      const idx = currentCycleIndex(section.startDate, (section.days || []).length, now) || 0;
+      return cycleAccent(idx, (section.days || []).length);
+    }
+    return section.color || staticAccent(section.id);
+  }
+  function sectionParts(section) {
+    if (section.type === "weekday") return (section.days && section.days[currentWeekdayKey(now)]) || [];
+    if (section.type === "cycle") {
+      const idx = currentCycleIndex(section.startDate, (section.days || []).length, now);
+      return idx !== null ? (section.days[idx] || []) : [];
+    }
+    return section.parts || [];
+  }
+  function sectionLabel(section) {
+    if (section.type === "weekday") return weekdayLabel(currentWeekdayKey(now));
+    if (section.type === "cycle") {
+      const len = (section.days || []).length;
+      const idx = currentCycleIndex(section.startDate, len, now);
+      return idx !== null ? `Day ${idx + 1} of ${len}` : "—";
+    }
+    return "";
+  }
+
+  sectionNavEl.innerHTML = "";
+  sections.forEach((sec) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "section-tab" + (sec.id === activeSectionId ? " active" : "");
+    btn.textContent = sec.name;
+    btn.style.setProperty("--accent", sectionAccent(sec));
+    btn.addEventListener("click", () => {
+      activeSectionId = sec.id;
+      renderApp();
+    });
+    sectionNavEl.appendChild(btn);
+  });
+
+  const active = sections.find((s) => s.id === activeSectionId);
+  contentEl.innerHTML = "";
+  contentEl.appendChild(buildCard(sectionLabel(active), sectionAccent(active), sectionParts(active), {
+    confettiColors: CONFETTI_DAY_COLORS,
+    onResponse: (r) => recordResponse({ sectionId: active.id, sectionName: active.name, ...r }),
+  }));
+}
+
+// Skip the gate if already unlocked this session
+if (sessionStorage.getItem(SESSION_KEY) === "1") {
+  showContent();
+} else {
+  pwInput.focus();
+}
+</script>
+</body>
+</html>

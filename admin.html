@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Daily — Admin</title>
+<link rel="stylesheet" href="css/styles.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+
+<div id="login-view" class="login-box">
+  <h1>Admin sign in</h1>
+  <div class="row">
+    <input id="login-email" type="email" placeholder="Email" autocomplete="username" />
+    <input id="login-password" type="password" placeholder="Password" autocomplete="current-password" />
+    <button type="button" class="btn primary" id="login-btn">Sign in</button>
+  </div>
+  <div class="status-msg error" id="login-error"></div>
+</div>
+
+<div id="admin-view" class="admin-wrap" style="display:none;">
+  <div class="admin-header">
+    <h1>Content editor</h1>
+    <div class="signed-in">
+      <span id="signed-in-email"></span>
+      <button type="button" id="signout-btn">Sign out</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Gate password</h2>
+    <div class="row">
+      <div>
+        <label class="small">Password visitors enter on the main page</label>
+        <input id="gate-password" type="text" placeholder="Password" />
+      </div>
+      <button type="button" class="btn primary" id="save-password-btn">Save password</button>
+    </div>
+    <div class="status-msg" id="password-status"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Nighttime (after 10 PM — replaces everything else)</h2>
+    <p class="status-msg nighttime-note">Exactly two parts, always: a checklist, then a set of dropdown questions. Edit their contents below.</p>
+
+    <h3 class="subhead">Checklist</h3>
+    <div id="nighttime-checklist"></div>
+
+    <h3 class="subhead spaced">Questions</h3>
+    <div id="nighttime-dropdown"></div>
+
+    <div class="status-msg" id="nighttime-status"></div>
+  </div>
+
+  <div id="sections-container"></div>
+
+  <div class="panel">
+    <h2>Review past data</h2>
+    <p class="status-msg nighttime-note">Every checkbox and dropdown answer from the public page is logged here by date. Nothing loads automatically — click below when you want to look.</p>
+    <div class="row">
+      <button type="button" class="btn primary" id="load-history-btn">Load history</button>
+      <select id="history-year-select" disabled></select>
+      <button type="button" class="btn" id="export-history-btn" disabled>Export to Excel (.xlsx)</button>
+    </div>
+    <div class="status-msg" id="history-status"></div>
+    <div id="history-table-wrap"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Add a new section</h2>
+    <div class="row">
+      <div>
+        <label class="small">Name</label>
+        <input id="new-section-name" type="text" placeholder="e.g. Section 4" />
+      </div>
+      <div>
+        <label class="small">Type</label>
+        <select id="new-section-type">
+          <option value="weekday">Day-of-week</option>
+          <option value="cycle">Multi-day cycle</option>
+          <option value="static">Static (always the same)</option>
+        </select>
+      </div>
+      <button type="button" class="btn primary" id="add-section-btn">Add section</button>
+    </div>
+    <div class="status-msg" id="add-section-status"></div>
+  </div>
+</div>
+
+<script type="module" src="js/admin.js"></script>
+</body>
+</html>
