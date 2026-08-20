@@ -1,4 +1,4 @@
-export const firebaseConfig = {
+export const firebase-Config = {
   apiKey: "AIzaSyCcAcwCIP4nzzoeoOIF2mEjiHgLSCXD4l8",
   authDomain: "digital-binder-f9a09.firebaseapp.com",
   projectId: "digital-binder-f9a09",
