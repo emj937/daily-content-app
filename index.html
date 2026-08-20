@@ -159,7 +159,7 @@ async function renderApp() {
     if (section.type === "weekday") return (section.days && section.days[currentWeekdayKey(now)]) || [];
     if (section.type === "cycle") {
       const idx = currentCycleIndex(section.startDate, (section.days || []).length, now);
-      return idx !== null ? (section.days[idx] || []) : [];
+      return idx !== null ? ((section.days[idx] && section.days[idx].parts) || []) : [];
     }
     return section.parts || [];
   }
